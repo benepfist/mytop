@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Tag to release (for example v1.2.3)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -28,9 +33,26 @@ jobs:
           - goos: windows
             goarch: amd64
 
+    env:
+      RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || inputs.release_tag }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Validate release tag
+        run: |
+          if [ -z "$RELEASE_TAG" ]; then
+            echo "RELEASE_TAG is empty"
+            exit 1
+          fi
+          case "$RELEASE_TAG" in
+            v*) ;;
+            *)
+              echo "RELEASE_TAG must start with 'v' (got: $RELEASE_TAG)"
+              exit 1
+              ;;
+          esac
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -74,4 +96,6 @@ jobs:
       - name: Upload release asset
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
           files: release/*
+          overwrite_files: true
