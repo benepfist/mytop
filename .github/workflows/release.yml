@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build and release binaries
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+          cache: true
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p dist
+          EXT=""
+          if [ "$GOOS" = "windows" ]; then
+            EXT=".exe"
+          fi
+          BINARY="mytop-${GOOS}-${GOARCH}${EXT}"
+          go build -o "dist/${BINARY}" ./cmd/mytop
+
+      - name: Package artifact
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p release
+          if [ "$GOOS" = "windows" ]; then
+            artifact="mytop-${GOOS}-${GOARCH}.zip"
+            (cd dist && zip -q "../release/${artifact}" "mytop-${GOOS}-${GOARCH}.exe")
+          else
+            artifact="mytop-${GOOS}-${GOARCH}.tar.gz"
+            tar -C dist -czf "release/${artifact}" "mytop-${GOOS}-${GOARCH}"
+          fi
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mytop-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: release/*
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
