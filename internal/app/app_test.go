@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"os"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -24,12 +27,12 @@ type stubUI struct {
 }
 
 func (s *stubUI) Init(_ Config, _ *RuntimeState, _ DB) error { s.inited = true; return s.initErr }
-func (s *stubUI) Run() error                                { s.run = true; return s.runErr }
+func (s *stubUI) Run() error                                 { s.run = true; return s.runErr }
 
 type stubDB struct{}
 
 func (stubDB) Hashes(string) ([]map[string]string, error) { return nil, nil }
-func (stubDB) Execute(string) error                        { return nil }
+func (stubDB) Execute(string) error                       { return nil }
 
 type errReader struct{}
 
@@ -99,6 +102,12 @@ func TestThreadHelpers(t *testing.T) {
 }
 
 func TestUtilityFunctions(t *testing.T) {
+	if got := NormalizeHost("", false); got != "" {
+		t.Fatalf("expected empty host, got %q", got)
+	}
+	if got := NormalizeHost("localhost", false); got != "localhost" {
+		t.Fatalf("got %s", got)
+	}
 	if got := NormalizeHost("db.prod.local:3306", false); got != "db.prod" {
 		t.Fatalf("got %s", got)
 	}
@@ -112,6 +121,9 @@ func TestUtilityFunctions(t *testing.T) {
 		t.Fatalf("commify mismatch")
 	}
 	if got := MakeShort(1500, false); got != "1.5k" {
+		t.Fatalf("got %s", got)
+	}
+	if got := MakeShort(999, false); got != "999" {
 		t.Fatalf("got %s", got)
 	}
 	if got := MakeShort(1200, true); got != "1,200" {
@@ -132,6 +144,25 @@ func TestTerminalAndPromptHelpers(t *testing.T) {
 	}
 	if Pager() != "" {
 		t.Fatalf("expected no pager in empty PATH")
+	}
+
+	dir := t.TempDir()
+	lessName := "less"
+	content := []byte("#!/bin/sh\nexit 0\n")
+	if runtime.GOOS == "windows" {
+		lessName = "less.exe"
+		content = []byte("MZ")
+	}
+	lessPath := filepath.Join(dir, lessName)
+	if err := os.WriteFile(lessPath, content, 0o755); err != nil {
+		t.Fatalf("write pager: %v", err)
+	}
+	t.Setenv("PATH", dir)
+	if got := FindProg("less"); got == "" {
+		t.Fatalf("expected to find less in path")
+	}
+	if got := Pager(); !strings.HasSuffix(got, "less") {
+		t.Fatalf("expected less pager, got %q", got)
 	}
 
 	out := &bytes.Buffer{}

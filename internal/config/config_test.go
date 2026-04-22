@@ -47,6 +47,45 @@ func TestLoadConfigFileAndEnvAndFlags(t *testing.T) {
 	}
 }
 
+func TestLoadConfigFileParsesAdditionalKeys(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, ".mytop")
+	content := strings.Join([]string{
+		"password=secret",
+		"database=prod",
+		"socket=/tmp/mysql.sock",
+		"batch=true",
+		"resolve=0",
+		"idle=false",
+		"host=conf.local",
+		"port=3333",
+	}, "\n")
+	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	l := NewLoader()
+	l.home = dir
+	cfg, err := l.Load(nil)
+	if err != nil {
+		t.Fatalf("load failed: %v", err)
+	}
+	if cfg.Pass != "secret" || cfg.DB != "prod" || cfg.Socket != "/tmp/mysql.sock" {
+		t.Fatalf("expected parsed cfg fields, got %+v", cfg)
+	}
+	if !cfg.BatchMode || cfg.Resolve || cfg.Idle || cfg.Host != "conf.local" || cfg.Port != 3333 {
+		t.Fatalf("unexpected config bools/host/port: %+v", cfg)
+	}
+}
+
+func TestLoadConfigFileOpenError(t *testing.T) {
+	l := NewLoader()
+	l.home = string([]byte{'i', 'n', 'v', 'a', 'l', 'i', 'd', 0, 'h', 'o', 'm', 'e'})
+	if _, err := l.Load(nil); err == nil {
+		t.Fatalf("expected config open error")
+	}
+}
+
 func TestLoaderErrorsAndPrompt(t *testing.T) {
 	t.Setenv("MYTOP_PORT", "invalid")
 	if _, err := NewLoader().Load(nil); err == nil || !strings.Contains(err.Error(), "invalid MYTOP_PORT") {
