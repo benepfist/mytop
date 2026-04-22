@@ -79,12 +79,8 @@ func TestLoadConfigFileParsesAdditionalKeys(t *testing.T) {
 }
 
 func TestLoadConfigFileOpenError(t *testing.T) {
-	tmpFile := filepath.Join(t.TempDir(), "not-a-dir")
-	if err := os.WriteFile(tmpFile, []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
-	}
 	l := NewLoader()
-	l.home = tmpFile
+	l.home = string([]byte{'i', 'n', 'v', 'a', 'l', 'i', 'd', 0, 'h', 'o', 'm', 'e'})
 	if _, err := l.Load(nil); err == nil {
 		t.Fatalf("expected config open error")
 	}

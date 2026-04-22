@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -146,8 +147,14 @@ func TestTerminalAndPromptHelpers(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	lessPath := filepath.Join(dir, "less")
-	if err := os.WriteFile(lessPath, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+	lessName := "less"
+	content := []byte("#!/bin/sh\nexit 0\n")
+	if runtime.GOOS == "windows" {
+		lessName = "less.exe"
+		content = []byte("MZ")
+	}
+	lessPath := filepath.Join(dir, lessName)
+	if err := os.WriteFile(lessPath, content, 0o755); err != nil {
 		t.Fatalf("write pager: %v", err)
 	}
 	t.Setenv("PATH", dir)
