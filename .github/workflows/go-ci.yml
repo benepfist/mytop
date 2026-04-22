@@ -26,6 +26,7 @@ jobs:
           cache: true
 
       - name: Run Go tests with coverage
+        shell: bash
         run: |
           go test -coverprofile=coverage.out ./...
           go tool cover -func=coverage.out
