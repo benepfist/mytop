@@ -3,6 +3,7 @@ package tui
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -57,11 +58,11 @@ func baseState() *app.RuntimeState {
 
 func TestRunAndModes(t *testing.T) {
 	db := &fakeDB{rows: map[string][]map[string]string{
-		"SHOW GLOBAL STATUS":    {{"Variable_name": "Uptime", "Value": "10"}, {"Variable_name": "Questions", "Value": "20"}, {"Variable_name": "Slow_queries", "Value": "2"}},
-		"SHOW FULL PROCESSLIST": {{"Id": "1", "User": "root", "db": "test", "Host": "localhost:3306", "Command": "Query", "Time": "2", "Info": "select 1"}},
-		"SHOW STATUS LIKE \"Questions\"": {{"Variable_name": "Questions", "Value": "25"}},
+		"SHOW GLOBAL STATUS":              {{"Variable_name": "Uptime", "Value": "10"}, {"Variable_name": "Questions", "Value": "20"}, {"Variable_name": "Slow_queries", "Value": "2"}},
+		"SHOW FULL PROCESSLIST":           {{"Id": "1", "User": "root", "db": "test", "Host": "localhost:3306", "Command": "Query", "Time": "2", "Info": "select 1"}},
+		"SHOW STATUS LIKE \"Questions\"":  {{"Variable_name": "Questions", "Value": "25"}},
 		"SHOW GLOBAL STATUS LIKE 'Com_%'": {{"Variable_name": "Com_select", "Value": "4"}},
-		"SHOW INNODB STATUS": {{"Status": "ok"}},
+		"SHOW INNODB STATUS":              {{"Status": "ok"}},
 	}, err: map[string]error{}}
 
 	tu := New()
@@ -85,9 +86,48 @@ func TestRunAndModes(t *testing.T) {
 	}
 }
 
+func TestRunHelpAndLoopErrors(t *testing.T) {
+	t.Run("help mode", func(t *testing.T) {
+		tu := New()
+		err := tu.Init(app.Config{Help: true, Color: false}, baseState(), &fakeDB{rows: map[string][]map[string]string{}, err: map[string]error{}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := captureOutput(t, func() {
+			if err := tu.Run(); err != nil {
+				t.Fatalf("Run failed: %v", err)
+			}
+		})
+		if !strings.Contains(out, "mytop-go shortcuts") {
+			t.Fatalf("expected help output")
+		}
+	})
+
+	t.Run("runMode error in loop", func(t *testing.T) {
+		db := &fakeDB{rows: map[string][]map[string]string{}, err: map[string]error{"SHOW STATUS LIKE \"Questions\"": errors.New("boom")}}
+		tu := New()
+		_ = tu.Init(app.Config{BatchMode: false, Mode: app.ModeQPS, Delay: 0}, baseState(), db)
+		tu.in = bufio.NewReader(strings.NewReader("\n"))
+		if err := tu.Run(); err == nil {
+			t.Fatalf("expected run error")
+		}
+	})
+
+	t.Run("readCommand error in loop", func(t *testing.T) {
+		db := &fakeDB{rows: map[string][]map[string]string{}, err: map[string]error{"FLUSH STATUS": errors.New("flush failed")}}
+		tu := New()
+		_ = tu.Init(app.Config{BatchMode: false, Mode: app.ModeTop, Delay: 0}, baseState(), db)
+		tu.state.Paused = true
+		tu.in = bufio.NewReader(strings.NewReader("r\n"))
+		if err := tu.Run(); err == nil {
+			t.Fatalf("expected flush error")
+		}
+	})
+}
+
 func TestReadCommandAndHandleInput(t *testing.T) {
 	db := &fakeDB{rows: map[string][]map[string]string{
-		"SHOW VARIABLES": {{"Variable_name": "version", "Value": "8.0"}},
+		"SHOW VARIABLES":   {{"Variable_name": "version", "Value": "8.0"}},
 		"EXPLAIN select 1": {{"id": "1", "type": "ALL"}},
 	}, err: map[string]error{}}
 	tu := New()
@@ -168,4 +208,61 @@ func TestHelpers(t *testing.T) {
 	tu.state = baseState()
 	tu.state.PrevAt = time.Now().Add(-time.Second)
 	_ = buf
+}
+
+func TestDataAndViewErrors(t *testing.T) {
+	t.Run("getData negative qps and no header", func(t *testing.T) {
+		db := &fakeDB{rows: map[string][]map[string]string{
+			"SHOW GLOBAL STATUS":    {{"Variable_name": "Uptime", "Value": "20"}, {"Variable_name": "Questions", "Value": "5"}, {"Variable_name": "Slow_queries", "Value": "0"}},
+			"SHOW FULL PROCESSLIST": {{"Id": "1", "User": "root", "db": "test", "Host": "localhost:3306", "Command": "Sleep", "Time": "2", "Info": "select 1"}},
+		}, err: map[string]error{}}
+		tu := New()
+		st := baseState()
+		st.StatusPrev["Questions"] = 10
+		st.PrevAt = time.Now().Add(5 * time.Second)
+		_ = tu.Init(app.Config{Delay: 1, Header: false, Idle: false, Resolve: false}, st, db)
+		out := captureOutput(t, func() {
+			if err := tu.getData(); err != nil {
+				t.Fatalf("getData failed: %v", err)
+			}
+		})
+		if strings.Contains(out, "Uptime") || strings.Contains(out, "root") {
+			t.Fatalf("did not expect header or sleeping threads, got %q", out)
+		}
+	})
+
+	t.Run("view methods error", func(t *testing.T) {
+		errDB := &fakeDB{rows: map[string][]map[string]string{}, err: map[string]error{
+			"SHOW VARIABLES":                  errors.New("vars"),
+			"SHOW INNODB STATUS":              errors.New("innodb"),
+			"SHOW GLOBAL STATUS":              errors.New("status"),
+			"SHOW GLOBAL STATUS LIKE 'Com_%'": errors.New("com"),
+		}}
+		tu := &TUI{cfg: app.Config{Color: true}, state: baseState(), db: errDB}
+		if err := tu.getShowVariables(); err == nil {
+			t.Fatalf("expected show variables error")
+		}
+		if err := tu.getInnoDBStatus(); err == nil {
+			t.Fatalf("expected innodb error")
+		}
+		if err := tu.getShowStatus(); err == nil {
+			t.Fatalf("expected status error")
+		}
+		if err := tu.getCmdSummary(); err == nil {
+			t.Fatalf("expected cmd summary error")
+		}
+	})
+
+	t.Run("explain branches", func(t *testing.T) {
+		db := &fakeDB{rows: map[string][]map[string]string{}, err: map[string]error{"EXPLAIN select 2": errors.New("explain failed")}}
+		st := baseState()
+		st.QCache[2] = "select 2"
+		tu := &TUI{cfg: app.Config{}, state: st, db: db}
+		if err := tu.explain(2); err == nil {
+			t.Fatalf("expected explain error")
+		}
+		if err := tu.explain(999); err != nil {
+			t.Fatalf("invalid id should not error: %v", err)
+		}
+	})
 }
