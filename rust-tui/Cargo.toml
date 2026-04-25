@@ -1,0 +1,8 @@
+[package]
+name = "mytop-tui"
+version = "0.1.0"
+edition = "2024"
+description = "TUI rewrite scaffold for mytop"
+license = "GPL-2.0"
+
+[dependencies]
