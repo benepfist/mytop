@@ -65,4 +65,45 @@ mod tests {
         assert_eq!(result[0], "USE app");
         assert!(result[1].starts_with("EXPLAIN"));
     }
+
+    #[test]
+    fn full_query_info_returns_sql_for_valid_id() {
+        let mut cache = BTreeMap::new();
+        cache.insert(
+            7,
+            QueryCacheEntry {
+                db: None,
+                sql: "select 1".into(),
+            },
+        );
+
+        assert_eq!(full_query_info(&cache, 7).unwrap(), "select 1");
+    }
+
+    #[test]
+    fn explain_without_database_only_emits_explain() {
+        let mut cache = BTreeMap::new();
+        cache.insert(
+            5,
+            QueryCacheEntry {
+                db: None,
+                sql: "select * from metrics".into(),
+            },
+        );
+
+        let result = explain_sql(&cache, 5).unwrap();
+        assert_eq!(result, vec!["EXPLAIN select * from metrics".to_string()]);
+    }
+
+    #[test]
+    fn print_table_joins_cells_and_rows() {
+        let mut row1 = BTreeMap::new();
+        row1.insert("id".to_string(), "42".to_string());
+        row1.insert("name".to_string(), "jobs".to_string());
+        let mut row2 = BTreeMap::new();
+        row2.insert("state".to_string(), "running".to_string());
+        let printed = print_table(&[row1, row2]);
+
+        assert_eq!(printed, "id: 42, name: jobs\nstate: running");
+    }
 }

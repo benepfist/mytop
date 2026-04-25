@@ -52,6 +52,8 @@ pub fn find_prog(name: &str, paths: &[&str]) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn math_and_number_helpers_work() {
@@ -63,5 +65,35 @@ mod tests {
     #[test]
     fn clear_command_depends_on_platform() {
         assert_eq!(clear_command(false), "clear");
+        assert_eq!(clear_command(true), "\n\n\n");
+    }
+
+    #[test]
+    fn make_short_handles_all_units_and_plain_values() {
+        assert_eq!(make_short(999), "999");
+        assert_eq!(make_short(1_000), "1.0k");
+        assert_eq!(make_short(2_500_000_000), "2.5G");
+        assert_eq!(make_short(1_000_000_000_000), "1.0T");
+    }
+
+    #[test]
+    fn find_prog_returns_first_existing_path() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("mytop-utils-test-{nanos}"));
+        let dir_str = dir.to_string_lossy().to_string();
+        fs::create_dir_all(&dir).unwrap();
+
+        let bin_name = "mytop-helper";
+        let bin_path = dir.join(bin_name);
+        fs::write(&bin_path, "echo ok").unwrap();
+
+        let found = find_prog(bin_name, &[&dir_str]).unwrap();
+        assert_eq!(found, bin_path.to_string_lossy());
+        assert!(find_prog("does-not-exist", &[&dir_str]).is_none());
+
+        fs::remove_dir_all(&dir).unwrap();
     }
 }
