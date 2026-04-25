@@ -138,4 +138,51 @@ mod tests {
         assert!(color_enabled(&cfg, false));
         assert!(!color_enabled(&cfg, true));
     }
+
+    #[test]
+    fn parse_kv_config_skips_comments_and_invalid_lines() {
+        let parsed = parse_kv_config(
+            "
+                # comment
+                host = db.local
+                invalid-line
+                nocolor=true
+            ",
+        );
+
+        assert_eq!(parsed.get("host"), Some(&"db.local".to_string()));
+        assert_eq!(parsed.get("nocolor"), Some(&"true".to_string()));
+        assert!(!parsed.contains_key("invalid-line"));
+    }
+
+    #[test]
+    fn merge_config_parses_boolean_and_handles_invalid_port() {
+        let defaults = Config::default();
+        let file = parse_kv_config(
+            "port=not-a-number\nbatchmode=1\nnocolor=false\nsocket=/var/lib/mysql.sock\npass=s3cr3t",
+        );
+        let cli = parse_kv_config("nocolor=true");
+
+        let cfg = merge_config(defaults, file, cli);
+        assert_eq!(cfg.port, 3306);
+        assert!(cfg.batchmode);
+        assert!(cfg.nocolor);
+        assert_eq!(cfg.socket, Some("/var/lib/mysql.sock".to_string()));
+        assert_eq!(cfg.pass, Some("s3cr3t".to_string()));
+        assert!(!use_interactive_keyboard(&cfg));
+    }
+
+    #[test]
+    fn build_dsn_uses_host_and_port_when_socket_missing() {
+        let cfg = Config {
+            host: "db.example".to_string(),
+            port: 3308,
+            user: "alice".to_string(),
+            ..Config::default()
+        };
+        assert_eq!(
+            build_dsn(&cfg),
+            "mysql:host=db.example;port=3308;user=alice"
+        );
+    }
 }
