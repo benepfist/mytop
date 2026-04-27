@@ -142,7 +142,14 @@ pub fn poll_once(client: &mut impl DatabaseClient, state: &mut PollState) -> Res
 
     let previous_statcache = state.statcache.clone();
     let current_statcache = status_to_u64_map(&status);
-    let status_delta = compute_status_delta(&previous_statcache, &current_statcache);
+    let status_delta = if state.last_poll.is_none() {
+        current_statcache
+            .keys()
+            .map(|k| (k.clone(), 0_u64))
+            .collect::<BTreeMap<_, _>>()
+    } else {
+        compute_status_delta(&previous_statcache, &current_statcache)
+    };
 
     update_caches(state, &processlist, &status);
 
