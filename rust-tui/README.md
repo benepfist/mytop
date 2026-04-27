@@ -4,8 +4,7 @@
 Das Ziel ist ein modernes, testbares CLI-Programm mit Fokus auf schnelle Übersicht von
 Threads, Queries und Serverzustand.
 
-> Status: Der Core ist bereits als Bibliothek mit Spec-orientierten Modulen umgesetzt.
-> Der ausführbare CLI-Einstiegspunkt ist aktuell ein Platzhalter und wird schrittweise ausgebaut.
+> Status: Phase 0–6 Plan ist dokumentiert; Core-Module, Polling, Interaktion und Rendering-Bausteine sind umgesetzt.
 
 ## Warum dieses Projekt?
 
@@ -17,7 +16,7 @@ Threads, Queries und Serverzustand.
 
 - Rust Toolchain (empfohlen: stabil)
 - Cargo
-- Optional später: Zugriff auf einen MySQL/MariaDB-Server für echte Laufzeitdaten
+- Zugriff auf einen MySQL/MariaDB-Server für echte Laufzeitdaten
 
 ## Installation / Build
 
@@ -33,41 +32,39 @@ Für einen optimierten Build:
 cargo build --release
 ```
 
-## Einführung: Nutzung des CLI-Tools
-
-### 1) Anwendung starten
-
-```bash
-cargo run
-```
-
-Aktuell gibt die Anwendung einen Start-Hinweis aus (`mytop-tui rewrite core loaded`).
-Das bestätigt, dass Binary + Runtime korrekt gebaut wurden.
-
-### 2) Kernlogik über Tests verifizieren
-
-Da viele CLI-Funktionen derzeit als Module implementiert sind, ist `cargo test` der wichtigste
-Weg, das Verhalten reproduzierbar zu prüfen:
+## Tests
 
 ```bash
 cargo test
 ```
 
-Damit werden u. a. folgende Bereiche abgedeckt:
+Ergänzend sind Snapshot-/Golden-Tests in `tests/snapshot_render.rs` und ein Performance-Smoke-Test
+in `tests/perf_checks.rs` (explizit per `-- --ignored`) enthalten:
 
-- Konfigurations-Merge und DSN-Erzeugung
-- Interaktive Eingabevalidierung
-- Filter- und Sortierlogik
-- Hilfetexte und Ausgabeformate
+```bash
+cargo test --test snapshot_render
+cargo test --test perf_checks -- --ignored
+```
 
-### 3) Geplanter CLI-Workflow
+## Einführung: Nutzung des CLI-Tools
 
-Die Modulstruktur bildet bereits den späteren Bedienfluss eines klassischen `mytop` ab:
+```bash
+cargo run -- --help
+```
 
-- **Startup:** Defaults + Config + CLI-Parameter zusammenführen
-- **Loop & Modes:** Top-/QPS-/Command-/Status-Sichten wechseln
-- **Commands:** Interaktive Befehle, Thread-ID-Handling, Delay-Steuerung
-- **Output:** Textausgaben (z. B. Status, InnoDB, Variablen)
+Beispiel:
+
+```bash
+cargo run -- --host 127.0.0.1 --port 3306 --user root --db test --mode top
+```
+
+## Migration vom Perl-`mytop`
+
+- **Config-Priorität unverändert:** Defaults < `~/.mytop` < CLI.
+- **Modi/Shortcuts:** `top`, `qps`, `cmd`, `innodb`, `status` sowie Keyflows sind als State-Maschine modelliert.
+- **Introspection:** Full-Query und Explain arbeiten mit Cache + Prozessliste.
+- **Kill-Sicherheit:** Kill-Planung für Thread/User enthält Confirmations/Sicherheitsregeln.
+- **Output:** Tabellen-/Fehlerformatierung ist vereinheitlicht.
 
 ## Projektstruktur
 
@@ -75,25 +72,18 @@ Die Modulstruktur bildet bereits den späteren Bedienfluss eines klassischen `my
 rust-tui/
 ├── src/main.rs          # Binary-Einstiegspunkt
 ├── src/lib.rs           # Modul-Exports
-├── src/startup.rs       # Konfiguration und DSN
-├── src/loop_modes.rs    # Loop-/Modus-Logik
-├── src/top_view.rs      # Top-Ansicht und Sortierung
-├── src/commands.rs      # Interaktive Kommandos
-├── src/filters.rs       # Filter-Verhalten
+├── src/startup.rs       # Konfiguration, CLI, DSN, Connect
+├── src/data.rs          # DB-Abstraktion, Polling, Caches
+├── src/interactive.rs   # Loop/Key/Prompt-Logik
+├── src/top_view.rs      # Top-View-Filter/Sort/Header
+├── src/output.rs        # Render- und Formatierungsfunktionen
+├── src/commands.rs      # Kommando- und Safety-Parsing
 ├── src/introspection.rs # Full Query / Explain
 ├── src/summaries.rs     # QPS-/Command-/Status-Summaries
-├── src/output.rs        # Ausgabe-Rendering
-├── src/utils.rs         # Hilfsfunktionen
-└── src/help.rs          # Hilfe/Shortcut-Texte
+├── src/help.rs          # Hilfe/Shortcut-Texte
+└── src/utils.rs         # Hilfsfunktionen
 ```
 
-## Nächste Schritte
+## Release-Vorbereitung (MVP)
 
-- Echte CLI-Argumente (z. B. Host, Port, User, Socket, Batch-Mode) an `main.rs` anbinden
-- Datenbankverbindung integrieren
-- Interaktive Terminal-Darstellung vervollständigen
-
----
-
-Historischer Kontext: Dieses Projekt ist ein Rewrite des ursprünglichen `mytop`-Ansatzes,
-mit Fokus auf moderne Rust-Entwicklung und testgetriebenes Vorgehen.
+Siehe `../docs/release-mvp-checklist.md` für die Versionierungs-/Release-Schritte.
