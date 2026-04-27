@@ -4,6 +4,14 @@ pub fn get_qps(previous: u64, current: u64) -> u64 {
     current.saturating_sub(previous)
 }
 
+pub fn get_qps_rate(previous: u64, current: u64, delta_secs: f64) -> f64 {
+    if delta_secs <= 0.0 {
+        0.0
+    } else {
+        get_qps(previous, current) as f64 / delta_secs
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct CmdSummary {
     pub name: String,
@@ -70,6 +78,8 @@ mod tests {
     #[test]
     fn qps_is_delta_of_questions() {
         assert_eq!(get_qps(100, 130), 30);
+        assert_eq!(get_qps_rate(100, 130, 3.0), 10.0);
+        assert_eq!(get_qps_rate(100, 130, 0.0), 0.0);
     }
 
     #[test]

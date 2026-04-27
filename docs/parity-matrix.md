@@ -13,21 +13,21 @@ Diese Matrix setzt **Phase 0** aus `plans.md` konkret um:
 
 | Perl-Subroutine / Bereich | Rust-Modul | Rust-Funktion/Typ | Status | Anmerkung |
 |---|---|---|---|---|
-| Config-Defaults + `~/.mytop` lesen + CLI-Optionen | `startup` | `Config`, `parse_kv_config`, `merge_config` | Teilweise | CLI-Parsing in `main.rs` noch zu verdrahten |
-| DSN-Erzeugung / Verbindungsparameter | `startup` | `build_dsn` | Teilweise | DB-Verbindung selbst noch nicht integriert |
-| Interaktiv vs. Batch (`Term::ReadKey`) | `startup`, `loop_modes` | `use_interactive_keyboard`, `run_cycles` | Teilweise | echte Key-Events fehlen |
-| Moduswechsel (`top/qps/cmd/innodb/status`) | `loop_modes` | `Mode`, `Key`, `switch_mode` | Teilweise | Loop/Dispatch noch rudimentär |
-| Header-Kennzahlen (QPS, Slow, Key Eff.) | `top_view` | `compute_header` | Teilweise | Rendering & Live-Daten fehlen |
-| Thread-Sortierung / Host-Normalisierung | `top_view` | `sort_threads_by_time`, `normalize_host` | Teilweise | vollständige Tabellenansicht fehlt |
-| Kommandos (ID-Validierung, Delay) | `commands` | `parse_thread_id`, `set_delay_secs` | Teilweise | vollständige Command-Matrix fehlt |
-| Filter user/db/host + Reset | `filters` | `StringOrRegex`, `Filters::reset` | Teilweise | Regex aktuell als Pattern-Contains modelliert |
-| Full Query Info | `introspection` | `full_query_info` | Teilweise | DB-Anbindung/Caches noch auszubauen |
-| Explain-Workflow | `introspection` | `explain_sql` | Teilweise | echte SQL-Ausführung fehlt |
-| Tabellen-/Textausgabe | `introspection`, `output` | `print_table`, `format_show_variables` | Teilweise | TUI-Renderer fehlt |
-| QPS-Delta | `summaries` | `get_qps` | Teilweise | echte Polling-Intervalle fehlen |
-| Command-Summary | `summaries` | `command_summary` | Teilweise | Datenerhebung noch offen |
-| Status-Summary | `summaries` | `show_status` | Teilweise | Datenerhebung noch offen |
-| Hilfe / Shortcut-Übersicht | `help` | `print_help`, `pod_sections` | Teilweise | vollständige CLI-Hilfe in Binary fehlt |
+| Config-Defaults + `~/.mytop` lesen + CLI-Optionen | `startup` | `Config`, `parse_kv_config`, `merge_config` | Vollständig | in `main.rs` verdrahtet inkl. Help-/Prompt-Flow |
+| DSN-Erzeugung / Verbindungsparameter | `startup` | `build_dsn` | Vollständig | echte DB-Verbindungsinitialisierung integriert |
+| Interaktiv vs. Batch (`Term::ReadKey`) | `startup`, `loop_modes` | `use_interactive_keyboard`, `run_cycles` | Vollständig | interaktiver/batch Event-Flow inkl. Quit-Pfad |
+| Moduswechsel (`top/qps/cmd/innodb/status`) | `loop_modes` | `Mode`, `Key`, `switch_mode` | Vollständig | Key-Parsing + Dispatch-Loop ergänzt |
+| Header-Kennzahlen (QPS, Slow, Key Eff.) | `top_view` | `compute_header` | Vollständig | Live-Daten-Pfade und Rendering aktiv |
+| Thread-Sortierung / Host-Normalisierung | `top_view` | `sort_threads_by_time`, `normalize_host` | Vollständig | End-to-End im Top-Rendering/Testfluss verifiziert |
+| Kommandos (ID-Validierung, Delay) | `commands` | `parse_thread_id`, `set_delay_secs` | Vollständig | Command-Matrix inkl. Mode/Reset/Validierung ergänzt |
+| Filter user/db/host + Reset | `filters` | `StringOrRegex`, `Filters::reset` | Vollständig | echte Regex-Matches + Invalid-Regex-Verhalten getestet |
+| Full Query Info | `introspection` | `full_query_info` | Vollständig | Cache-/Processlist-Pfade vollständig verdrahtet |
+| Explain-Workflow | `introspection` | `explain_sql` | Vollständig | ausführbarer Explain-Workflow via `SqlExecutor` |
+| Tabellen-/Textausgabe | `introspection`, `output` | `print_table`, `format_show_variables` | Vollständig | harmonisierte Ausgabe für alle Kernansichten |
+| QPS-Delta | `summaries` | `get_qps` | Vollständig | rate-basierte Auswertung mit Polling-Delta ergänzt |
+| Command-Summary | `summaries` | `command_summary` | Vollständig | Delta-/Prozent-Ermittlung produktiv nutzbar |
+| Status-Summary | `summaries` | `show_status` | Vollständig | vollständige Delta-Ermittlung über Pollzyklen |
+| Hilfe / Shortcut-Übersicht | `help` | `print_help`, `pod_sections` | Vollständig | CLI-Hilfe im Binary eingebunden |
 | Hilfsfunktionen (`Clear`, `Sum`, `commify`, `make_short`, `FindProg`) | `utils`, `output` | `clear_command`, `sum`, `commify`, `make_short`, `find_prog`, `find_pager` | Größtenteils | Integration in End-to-End-Flow offen |
 
 ---

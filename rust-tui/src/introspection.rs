@@ -67,6 +67,22 @@ pub fn explain_from_processlist(
     explain_sql(cache, id)
 }
 
+pub trait SqlExecutor {
+    fn execute(&mut self, statement: &str) -> Result<(), String>;
+}
+
+pub fn run_explain_workflow(
+    executor: &mut impl SqlExecutor,
+    cache: &BTreeMap<u64, QueryCacheEntry>,
+    id: u64,
+) -> Result<Vec<String>, String> {
+    let steps = explain_sql(cache, id)?;
+    for step in &steps {
+        executor.execute(step)?;
+    }
+    Ok(steps)
+}
+
 pub fn print_table(rows: &[BTreeMap<String, String>]) -> String {
     rows.iter()
         .map(|row| {
@@ -166,5 +182,43 @@ mod tests {
         let printed = print_table(&[row1, row2]);
 
         assert_eq!(printed, "id: 42, name: jobs\nstate: running");
+    }
+
+    struct MockExec {
+        calls: Vec<String>,
+        fail_on: Option<String>,
+    }
+
+    impl SqlExecutor for MockExec {
+        fn execute(&mut self, statement: &str) -> Result<(), String> {
+            if self
+                .fail_on
+                .as_ref()
+                .is_some_and(|needle| statement.contains(needle))
+            {
+                return Err("forced failure".to_string());
+            }
+            self.calls.push(statement.to_string());
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn explain_workflow_executes_use_and_explain_steps() {
+        let mut cache = BTreeMap::new();
+        cache.insert(
+            3,
+            QueryCacheEntry {
+                db: Some("analytics".into()),
+                sql: "select * from jobs".into(),
+            },
+        );
+
+        let mut exec = MockExec {
+            calls: Vec::new(),
+            fail_on: None,
+        };
+        let steps = run_explain_workflow(&mut exec, &cache, 3).unwrap();
+        assert_eq!(steps, exec.calls);
     }
 }
