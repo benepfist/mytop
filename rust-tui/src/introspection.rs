@@ -6,11 +6,44 @@ pub struct QueryCacheEntry {
     pub sql: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProcesslistRowLite {
+    pub id: u64,
+    pub db: Option<String>,
+    pub info: Option<String>,
+}
+
+pub fn merge_cache_from_processlist(
+    cache: &mut BTreeMap<u64, QueryCacheEntry>,
+    processlist: &[ProcesslistRowLite],
+) {
+    for row in processlist {
+        if let Some(sql) = &row.info {
+            cache.insert(
+                row.id,
+                QueryCacheEntry {
+                    db: row.db.clone(),
+                    sql: sql.clone(),
+                },
+            );
+        }
+    }
+}
+
 pub fn full_query_info(cache: &BTreeMap<u64, QueryCacheEntry>, id: u64) -> Result<String, String> {
     cache
         .get(&id)
         .map(|v| v.sql.clone())
         .ok_or_else(|| "*** Invalid id. ***".to_string())
+}
+
+pub fn full_query_info_from_processlist(
+    cache: &mut BTreeMap<u64, QueryCacheEntry>,
+    processlist: &[ProcesslistRowLite],
+    id: u64,
+) -> Result<String, String> {
+    merge_cache_from_processlist(cache, processlist);
+    full_query_info(cache, id)
 }
 
 pub fn explain_sql(cache: &BTreeMap<u64, QueryCacheEntry>, id: u64) -> Result<Vec<String>, String> {
@@ -23,6 +56,15 @@ pub fn explain_sql(cache: &BTreeMap<u64, QueryCacheEntry>, id: u64) -> Result<Ve
     }
     cmds.push(format!("EXPLAIN {}", entry.sql));
     Ok(cmds)
+}
+
+pub fn explain_from_processlist(
+    cache: &mut BTreeMap<u64, QueryCacheEntry>,
+    processlist: &[ProcesslistRowLite],
+    id: u64,
+) -> Result<Vec<String>, String> {
+    merge_cache_from_processlist(cache, processlist);
+    explain_sql(cache, id)
 }
 
 pub fn print_table(rows: &[BTreeMap<String, String>]) -> String {
@@ -93,6 +135,25 @@ mod tests {
 
         let result = explain_sql(&cache, 5).unwrap();
         assert_eq!(result, vec!["EXPLAIN select * from metrics".to_string()]);
+    }
+
+    #[test]
+    fn full_query_and_explain_work_with_processlist_cache_merge() {
+        let mut cache = BTreeMap::new();
+        let rows = vec![ProcesslistRowLite {
+            id: 9,
+            db: Some("analytics".into()),
+            info: Some("select * from jobs".into()),
+        }];
+
+        assert_eq!(
+            full_query_info_from_processlist(&mut cache, &rows, 9).unwrap(),
+            "select * from jobs"
+        );
+
+        let explain = explain_from_processlist(&mut cache, &rows, 9).unwrap();
+        assert_eq!(explain[0], "USE analytics");
+        assert_eq!(explain[1], "EXPLAIN select * from jobs");
     }
 
     #[test]

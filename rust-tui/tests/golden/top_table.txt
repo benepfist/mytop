@@ -1,0 +1,2 @@
+Id | User | DB | Host | Command | Time
+1 | alice | app | db01 | Query | 2

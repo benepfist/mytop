@@ -1,6 +1,8 @@
+pub mod data;
 pub mod commands;
 pub mod filters;
 pub mod help;
+pub mod interactive;
 pub mod introspection;
 pub mod loop_modes;
 pub mod output;
