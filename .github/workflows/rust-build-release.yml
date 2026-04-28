@@ -83,7 +83,7 @@ jobs:
         if: matrix.rust_target == 'aarch64-unknown-linux-gnu'
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+          sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross
 
       - name: Build binary
         shell: bash
@@ -100,7 +100,7 @@ jobs:
           BINARY="mytop-tui-${GOOS}-${GOARCH}${EXT}"
 
           if [ "$RUST_TARGET" = "aarch64-unknown-linux-gnu" ]; then
-            CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc \
+            CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
             cargo build --release --target "$RUST_TARGET"
           else
             cargo build --release --target "$RUST_TARGET"
@@ -108,20 +108,27 @@ jobs:
 
           cp "target/${RUST_TARGET}/release/mytop-tui${EXT}" "dist/${BINARY}"
 
-      - name: Package artifact
+      - name: Package Unix artifact
+        if: matrix.goos != 'windows'
         shell: bash
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: |
           mkdir -p release
-          if [ "$GOOS" = "windows" ]; then
-            artifact="mytop-tui-${GOOS}-${GOARCH}.zip"
-            (cd dist && zip -q "../release/${artifact}" "mytop-tui-${GOOS}-${GOARCH}.exe")
-          else
-            artifact="mytop-tui-${GOOS}-${GOARCH}.tar.gz"
-            tar -C dist -czf "release/${artifact}" "mytop-tui-${GOOS}-${GOARCH}"
-          fi
+          artifact="mytop-tui-${GOOS}-${GOARCH}.tar.gz"
+          tar -C dist -czf "release/${artifact}" "mytop-tui-${GOOS}-${GOARCH}"
+
+      - name: Package Windows artifact
+        if: matrix.goos == 'windows'
+        shell: pwsh
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          $artifact = "mytop-tui-${env:GOOS}-${env:GOARCH}.zip"
+          Compress-Archive -Path "dist/mytop-tui-${env:GOOS}-${env:GOARCH}.exe" -DestinationPath "release/$artifact" -Force
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
