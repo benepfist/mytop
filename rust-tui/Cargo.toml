@@ -7,3 +7,4 @@ license = "GPL-2.0"
 
 [dependencies]
 mysql = "26.0.1"
+regex = "1.12.2"

@@ -2,6 +2,7 @@ use mytop_tui::startup::{
     Config, color_enabled, connect_mysql, connection_error_message, merge_config, parse_cli_args,
     read_config_file,
 };
+use mytop_tui::{help, loop_modes};
 use std::collections::BTreeMap;
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -19,6 +20,10 @@ fn main() {
 
     if cli_map.contains_key("help") {
         print_usage();
+        println!();
+        println!("{}", help::print_help(color_enabled(&Config::default(), cfg!(windows))));
+        let sections = help::pod_sections().join(", ");
+        println!("POD: {sections}");
         return;
     }
 
@@ -33,9 +38,16 @@ fn main() {
 
     match connect_mysql(&cfg) {
         Ok(()) => {
+            let startup_mode = loop_modes::parse_key(match cfg.mode.as_str() {
+                "qps" => 'm',
+                "cmd" => 'c',
+                "innodb" => 'I',
+                "status" => 'S',
+                _ => 't',
+            });
             println!(
-                "mytop-tui startup ready (host={}, port={}, db={}, mode={})",
-                cfg.host, cfg.port, cfg.db, cfg.mode
+                "mytop-tui startup ready (host={}, port={}, db={}, mode={}, key={:?})",
+                cfg.host, cfg.port, cfg.db, cfg.mode, startup_mode
             );
         }
         Err(err) => {

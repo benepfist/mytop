@@ -69,6 +69,25 @@ pub fn parse_sort_order(input: &str) -> CommandFeedback {
     }
 }
 
+pub fn parse_mode_command(input: &str) -> CommandFeedback {
+    match input.trim().to_ascii_lowercase().as_str() {
+        "top" | "t" => CommandFeedback::Ok("mode=top".to_string()),
+        "qps" | "m" => CommandFeedback::Ok("mode=qps".to_string()),
+        "cmd" | "c" => CommandFeedback::Ok("mode=cmd".to_string()),
+        "innodb" | "i" => CommandFeedback::Ok("mode=innodb".to_string()),
+        "status" | "s" => CommandFeedback::Ok("mode=status".to_string()),
+        _ => CommandFeedback::Error("*** Invalid mode. ***".to_string()),
+    }
+}
+
+pub fn parse_reset_command(input: &str) -> CommandFeedback {
+    if input.trim().is_empty() || input.trim().eq_ignore_ascii_case("filters") {
+        CommandFeedback::Ok("filters reset".to_string())
+    } else {
+        CommandFeedback::Error("*** Invalid reset target. ***".to_string())
+    }
+}
+
 pub fn set_delay_secs(input: &str) -> u64 {
     input.trim().parse::<u64>().unwrap_or(1).max(1)
 }
@@ -149,6 +168,27 @@ mod tests {
         assert_eq!(
             parse_sort_order("random"),
             CommandFeedback::Error("*** Invalid sort. Use asc|desc. ***".to_string())
+        );
+    }
+
+    #[test]
+    fn mode_and_reset_commands_are_validated() {
+        assert_eq!(
+            parse_mode_command("innodb"),
+            CommandFeedback::Ok("mode=innodb".to_string())
+        );
+        assert_eq!(
+            parse_mode_command("weird"),
+            CommandFeedback::Error("*** Invalid mode. ***".to_string())
+        );
+
+        assert_eq!(
+            parse_reset_command("filters"),
+            CommandFeedback::Ok("filters reset".to_string())
+        );
+        assert_eq!(
+            parse_reset_command("cache"),
+            CommandFeedback::Error("*** Invalid reset target. ***".to_string())
         );
     }
 }

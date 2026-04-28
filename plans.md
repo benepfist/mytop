@@ -110,12 +110,41 @@ Eine funktionale, interaktive Terminal-Anwendung in Rust, die den Bedienfluss vo
 
 **Ergebnisartefakt:** Release-kandidatenfähige Rust-TUI.
 
+## Phase 7 – Paritätsmatrix-Restarbeiten (Teilimplementierungen schließen)
+**Ziel:** alle in `docs/parity-matrix.md` als **„Teilweise“** markierten Module bis zur vollständigen Umsetzungsparität fertigstellen.
+
+### Betroffene Module (Audit aus Paritätsmatrix)
+- `startup`
+- `loop_modes`
+- `top_view`
+- `commands`
+- `filters`
+- `introspection`
+- `output`
+- `summaries`
+- `help`
+
+### Aufgabenpakete zur Fertigstellung
+- [x] `startup`: CLI-Parsing in `main.rs` vollständig mit `Config`/`merge_config` verdrahten; DSN + echte DB-Verbindungsinitialisierung End-to-End anbinden.
+- [x] `loop_modes`: vollständigen Event-/Dispatch-Loop mit realen Key-Events und stabilem Moduswechsel (`top/qps/cmd/innodb/status`) nachziehen.
+- [x] `top_view`: Header- und Thread-Tabelle mit Live-Daten vollständig rendern; Sortierung/Filter/Host-Normalisierung im End-to-End-Flow verifizieren.
+- [x] `commands`: komplette Command-Matrix ergänzen (inkl. Validierung, Feedback-Texte und noch fehlender Interaktionspfade).
+- [x] `filters`: Regex-basierte Filter (statt reinem Contains-Fallback) vollständig implementieren und testen.
+- [x] `introspection`: Full-Query-/Explain-Pfade an echte SQL-Ausführung, Caches und Fehlerbehandlung anbinden.
+- [x] `output`: TUI-/Tabellenausgabe für alle Modi vollständig harmonisieren; Pager-Verhalten für lange Ausgaben robust absichern.
+- [x] `summaries`: QPS-/Command-/Status-Summaries auf echte Polling-Intervalle und vollständige Datenerhebung umstellen.
+- [x] `help`: vollständige CLI-Hilfe/Shortcut-Übersicht im Binary final integrieren.
+- [x] Cross-Cut: für jedes obige Modul DoD-Checks aus Specs `01`–`10` explizit als Testfälle/Golden-Outputs hinterlegen.
+
+**Ergebnisartefakt:** vollständig geschlossene Teilimplementierungen gemäß Paritätsmatrix + nachweisbare Spec-Parität.
+
 ---
 
 ## Umsetzungsreihenfolge (empfohlen)
 1. **Phase 0–2** (Fundament: Parität + Startup + Daten)
 2. **Phase 3–4** (Interaktion + sichtbare TUI)
 3. **Phase 5–6** (Kommandotiefe + Stabilisierung)
+4. **Phase 7** (gezielte Restarbeiten aus Paritätsmatrix)
 
 ---
 
@@ -128,3 +157,4 @@ Eine funktionale, interaktive Terminal-Anwendung in Rust, die den Bedienfluss vo
 - [x] Introspection/Kill-Kommandos
 - [x] Vollständige Spec-Testabdeckung
 - [x] Dokumentation + Release
+- [x] Teilimplementierungen aus Paritätsmatrix vollständig schließen

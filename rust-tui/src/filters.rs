@@ -1,3 +1,5 @@
+use regex::Regex;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StringOrRegex {
     MatchAll,
@@ -21,7 +23,7 @@ impl StringOrRegex {
         match self {
             Self::MatchAll => true,
             Self::Exact(s) => value == s,
-            Self::Pattern(p) => value.contains(p),
+            Self::Pattern(p) => Regex::new(p).is_ok_and(|re| re.is_match(value)),
         }
     }
 }
@@ -64,6 +66,19 @@ mod tests {
             StringOrRegex::parse("/report/"),
             StringOrRegex::Pattern("report".into())
         );
+    }
+
+    #[test]
+    fn regex_pattern_matching_is_supported() {
+        let p = StringOrRegex::parse("/^ali.*e$/");
+        assert!(p.matches("alice"));
+        assert!(!p.matches("alix"));
+    }
+
+    #[test]
+    fn invalid_regex_pattern_does_not_match() {
+        let p = StringOrRegex::Pattern("[".into());
+        assert!(!p.matches("alice"));
     }
 
     #[test]

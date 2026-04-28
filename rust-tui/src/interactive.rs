@@ -1,6 +1,6 @@
 use crate::commands::{
-    CommandFeedback, parse_explain_command, parse_filter_value, parse_kill_command, parse_sort_order,
-    set_delay_secs,
+    CommandFeedback, parse_explain_command, parse_filter_value, parse_kill_command,
+    parse_reset_command, parse_sort_order, set_delay_secs,
 };
 use crate::filters::Filters;
 use crate::loop_modes::Mode;
@@ -14,6 +14,7 @@ pub enum PromptMode {
     FilterHost,
     SetDelay,
     SetSort,
+    ResetFilters,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -56,6 +57,7 @@ pub fn handle_keypress(state: &mut InteractiveState, key: char) {
         'h' => state.prompt = Some(PromptMode::FilterHost),
         's' => state.prompt = Some(PromptMode::SetDelay),
         'o' => state.prompt = Some(PromptMode::SetSort),
+        'r' => state.prompt = Some(PromptMode::ResetFilters),
         _ => {}
     }
 }
@@ -88,6 +90,13 @@ pub fn submit_prompt(state: &mut InteractiveState, input: &str) -> Option<Comman
                 CommandFeedback::Ok(v)
             }
             CommandFeedback::Error(e) => CommandFeedback::Error(e),
+        },
+        PromptMode::ResetFilters => match parse_reset_command(input) {
+            CommandFeedback::Ok(msg) => {
+                state.filters.reset();
+                CommandFeedback::Ok(msg)
+            }
+            CommandFeedback::Error(err) => CommandFeedback::Error(err),
         },
     };
 
@@ -180,5 +189,9 @@ mod tests {
         handle_keypress(&mut state, 'o');
         let _ = submit_prompt(&mut state, "asc");
         assert!(!state.sort_desc);
+
+        handle_keypress(&mut state, 'r');
+        let _ = submit_prompt(&mut state, "filters");
+        assert_eq!(state.filters, Filters::default());
     }
 }
